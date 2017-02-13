@@ -74,4 +74,4 @@ rabbitmqctl set_parameter vshovel my-vshovel '{"src-uri": "amqp://fred:secret@ho
 
 ## License and Copyright
 
-2016-2017 (c) 84codes and Erlang Solutions Ltd.
+(c) 84codes AB and Erlang Solutions Ltd., 2016-2017
