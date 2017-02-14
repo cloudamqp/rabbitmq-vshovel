@@ -345,10 +345,10 @@ validate_addresses(Mod, Addresses) ->
 
 ensure_started([]) -> ok;
 ensure_started([App | Rem]) when is_atom(App) ->
-  case application:ensure_started(App) of
-    ok      -> ensure_started(Rem);
-    {error, _}  -> application:start(App)
-  end.
+    case application:ensure_started(App) of
+        ok      -> ensure_started(Rem);
+        {error, _}  -> application:start(App)
+    end.
 
 get_brokers(Endpoint) ->
     try get_endpoint(Endpoint, brokers, broker, broker_or_brokers) catch

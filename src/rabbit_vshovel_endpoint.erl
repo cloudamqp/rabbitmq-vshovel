@@ -16,15 +16,15 @@
 
 -module(rabbit_vshovel_endpoint).
 
--export([module/1, module/2, ensure_protocol/1, ensure_version/1, 
-	     notify_and_maybe_log/2, notify_and_maybe_log/3]).
+-export([module/1, module/2, ensure_protocol/1, ensure_version/1,
+         notify_and_maybe_log/2, notify_and_maybe_log/3]).
 
 -include("rabbit_vshovel.hrl").
 
 %% -------------------
 %% Behaviour callbacks
 %% -------------------
--callback init(pid(), vshovel_record())  ->	{'ok', term()} | {'error', term()}.
+-callback init(pid(), vshovel_record()) -> {'ok', term()} | {'error', term()}.
 
 -callback validate_address(iodata()) -> {'ok', term()} | vshovel_error().
 
@@ -32,7 +32,7 @@
 
 -callback handle_broker_message(term(), term()) -> {'ok', term()} | vshovel_error().
 
--callback terminate(atom()) -> 'ok'.
+-callback terminate(term()) -> 'ok'.
 
 
 -spec module(vshovel_protocol(), term()) -> atom() | vshovel_error().
@@ -57,20 +57,20 @@ module(Other)  	 	-> {error, io_lib:format("Unsupported protocol: ~p", [Other])}
 
 ensure_protocol(V) when is_atom(V) -> {ok, V};
 ensure_protocol(V)  -> 
-	try 
-		{ok, ?TO_ATOM(string:to_lower(?TO_LIST(V)))}
-	catch
-		_:Reason -> {error, Reason}
-	end.
+    try
+        {ok, ?TO_ATOM(string:to_lower(?TO_LIST(V)))}
+    catch
+        _:Reason -> {error, Reason}
+    end.
 
 ensure_version(V)  -> {ok, ?TO_LIST(V)}.
 
 notify_and_maybe_log(Endpoint, Result) ->
 	notify_and_maybe_log(vshovel_result, Endpoint, Result).
 notify_and_maybe_log(EventName, Endpoint, Result) ->
-	rabbit_event:notify(EventName, [{source, Endpoint}, {result, Result}]),
-	case application:get_env(rabbitmq_vshovel, log_result) of
-		true -> rabbit_log:info("vShovel result from '~p' endpoint: ~p",
-								[?MODULE, Result]);
-		_    -> void
-	end.
+    rabbit_event:notify(EventName, [{source, Endpoint}, {result, Result}]),
+    case application:get_env(rabbitmq_vshovel, log_result) of
+        true -> rabbit_log:info("vShovel result from '~p' endpoint: ~p",
+                                [EventName, Result]);
+        _    -> void
+    end.

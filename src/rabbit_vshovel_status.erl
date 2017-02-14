@@ -78,8 +78,7 @@ code_change(_OldVsn, State, _Extra) ->
 split_status({running, MoreInfo})         -> [{status, running} | MoreInfo];
 split_status({terminated, Reason})        -> [{status, terminated},
                                               {reason, Reason}];
-%split_status(Status) when is_atom(Status) -> [{status, Status}].
-split_status(Status)  -> [{status, Status}].
+split_status(Status) when is_atom(Status) -> [{status, Status}].
 
 split_name({VHost, Name})           -> [{name,  Name},
                                         {vhost, VHost}];
