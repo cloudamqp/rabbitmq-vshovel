@@ -15,7 +15,7 @@ This plugin is compatible with RabbitMQ 3.5.x and 3.6.x.
 
 ### Packaging
 
-Clone the projects and execute `make dist` to create a `.ez` package, which will be located in the plugins directory.
+Clone and build the the plugin by executing `make`. To create a package, execute `make dist` and find the `.ez` package file in the plugins directory.
 
 ### Static configuration
 
