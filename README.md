@@ -72,3 +72,6 @@ rabbitmqctl set_parameter vshovel my-vshovel \
 ## License and Copyright
 
 (c) 84codes AB and Erlang Solutions Ltd. 2016-2017
+
+https://www.cloudamqp.com
+https://www.erlang-solutions.com/
