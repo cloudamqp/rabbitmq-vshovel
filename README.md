@@ -19,7 +19,7 @@ Download pre-compiled versions from https://github.com/cloudamqp/rabbitmq-vshove
 
 ### Build
 
-Clone and build the the plugin by executing `make`. To create a package, execute `make dist` and find the `.ez` package file in the plugins directory.
+Clone and build the plugin by executing `make`. To create a package, execute `make dist` and find the `.ez` package file in the plugins directory.
 
 ### Dynamic configuration
 
@@ -58,7 +58,7 @@ rabbitmqctl set_parameter vshovel my-vshovel \
                   [{protocol,  http},
                    {address,   "https://56.12.331.123/server"},
                    {arguments, [{keepalive, 10},
-                   {method,	   post},
+                   {method,    post},
                    {ssl,       []}]}]},
               {queue,               <<>>},
               {prefetch_count,      10},
