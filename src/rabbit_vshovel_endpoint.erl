@@ -70,7 +70,7 @@ notify_and_maybe_log(Endpoint, Result) ->
 notify_and_maybe_log(EventName, Endpoint, Result) ->
     rabbit_event:notify(EventName, [{source, Endpoint}, {result, Result}]),
     case application:get_env(rabbitmq_vshovel, log_result) of
-        true -> rabbit_log:info("vShovel result from '~p' endpoint: ~p",
-                                [EventName, Result]);
+        true -> error_logger:info_msg("vShovel result from '~p' endpoint: ~p",
+                                      [EventName, Result]);
         _    -> void
     end.

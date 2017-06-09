@@ -116,8 +116,8 @@ parse_endpoint({Endpoint, Pos}) when is_list(Endpoint) ->
 
     Protocol1 = case rabbit_misc:pget(protocol, Endpoint) of
                   undefined ->
-                      rabbit_log:warning("vShovel protocol undefined. "
-                                         "Default 'amqp' protocol set."),
+                      error_logger:warning_msg("vShovel protocol undefined. "
+                                               "Default 'amqp' protocol set."),
                       ?AMQP_PROTOCOL;
                   Protocol0 ->
                       Protocol0

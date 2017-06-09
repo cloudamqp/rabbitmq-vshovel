@@ -20,48 +20,42 @@ Clone and build the the plugin by executing `make`. To create a package, execute
 ### Static configuration
 
 ```
-{rabbitmq_shovel,
-    [ {vshovels, [ {my_first_vshovel,
-                    [ {sources,
-                        [ {brokers, [ "amqp://fred:secret@host1.domain/my_vhost"
-                                    , "amqp://john:secret@host2.domain/my_vhost"
-                                    ]},
-                        , {arguments, [{declarations, [ {'exchange.declare',
-                                              				[ {exchange, <<"my_fanout">>}
-                                              			  	, {type, <<"fanout">>}
-                                              			  	, durable
-                                              			 ]}
-                                         , {'queue.declare',
-                                              [{arguments,
-                                                 [{<<"x-message-ttl">>, long, 60000}]}]}
-                                         , {'queue.bind',
-                                              [ {exchange, <<"my_direct">>}
-                                              , {queue,    <<>>}
-                                              ]}
-                                         ]},
-                    				 ]}
-                    , {destinations,
-                        [ {protocol, http},
-						  {address,  "https://56.12.331.123/server"},
-						  {arguments, [{keepalive,	 10},
-						  			   {method,		 post},
-						  			   {ssl,         []}]}
-                        ]}
-					
-                    , {queue, <<>>}
-                    , {prefetch_count, 10}
-                    , {ack_mode, on_confirm}
-                    , {publish_properties, [ {delivery_mode, 2} ]}
-                    , {add_forward_headers, true}
-                    , {publish_fields, [ {exchange, <<"my_direct">>}
-                                       , {routing_key, <<"from_shovel">>}
-                                       ]}
-                    , {reconnect_delay, 5}
-                    
-           ]}
-       ]}
-    ]}
-]}
+[{rabbitmq_vshovel,
+     [{vshovels,
+         [{my_first_vshovel,
+              [{sources,
+                  [{brokers,
+                      ["amqp://harry:secret@host1.domain/my_vhost",
+                       "amqp://john:secret@host2.domain/my_vhost"]},
+                   {arguments,
+                      [{declarations,
+                          [{'exchange.declare',
+                              [{exchange, <<"my_fanout">>},
+                               {type,      <<"fanout">>},
+                                durable]},
+                           {'queue.declare',
+                              [{arguments,
+                                    [{<<"x-message-ttl">>, long, 60000}]}]},
+                           {'queue.bind',
+                              [{exchange, <<"my_direct">>},
+                               {queue,    <<>>}]}
+                           ]}]}]},
+              {destinations,
+                  [{protocol,  http},
+                   {address,   "https://56.12.331.123/server"},
+                   {arguments, [{keepalive, 10},
+                   {method,	   post},
+                   {ssl,       []}]}]},
+              {queue,               <<>>},
+              {prefetch_count,      10},
+              {ack_mode,            on_confirm},
+              {publish_properties,  [{delivery_mode, 2}]},
+              {add_forward_headers, true},
+              {publish_fields,      [{exchange,   <<"my_direct">>},
+                                     {routing_key, <<"from_shovel">>}]},
+              {reconnect_delay,     5}]}
+          ]}
+]}].
 
 ```
 
@@ -74,4 +68,4 @@ rabbitmqctl set_parameter vshovel my-vshovel '{"src-uri": "amqp://fred:secret@ho
 
 ## License and Copyright
 
-(c) 84codes AB and Erlang Solutions Ltd., 2016-2017
+(c) 84codes AB and Erlang Solutions Ltd. 2016-2017
