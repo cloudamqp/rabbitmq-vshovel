@@ -17,6 +17,16 @@ This plugin is compatible with RabbitMQ 3.5.x and 3.6.x.
 
 Clone and build the the plugin by executing `make`. To create a package, execute `make dist` and find the `.ez` package file in the plugins directory.
 
+### Dynamic configuration
+
+```
+rabbitmqctl set_parameter vshovel my-vshovel \
+  '{"src-uri": "amqp://fred:secret@host1.domain/my_vhost",
+    "src-queue": "my-queue", "dest-type":"http",
+    "dest-uri":"http://remote-host1.domain", "dest-vsn": "1.1",
+    "dest-args": {"method": "post", "keep_alive_timeout" : 10000}}'
+```
+
 ### Static configuration
 
 ```
@@ -58,13 +68,6 @@ Clone and build the the plugin by executing `make`. To create a package, execute
 ]}].
 
 ```
-
-### Dynamic configuration
-
-```
-rabbitmqctl set_parameter vshovel my-vshovel '{"src-uri": "amqp://fred:secret@host1.domain/my_vhost", "src-queue": "my-queue", "dest-type":"http", "dest-uri":"http://remote-host1.domain",   "dest-vsn": "1.1", "dest-args": {"method": "post", "keep_alive_timeout" : 10000}}'
-```
-
 
 ## License and Copyright
 
