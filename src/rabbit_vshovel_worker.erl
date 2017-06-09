@@ -306,7 +306,7 @@ publish(Tag, Method, Msg, State = #state{inbound_ch = InboundChan,
       end).
 
 make_conn_and_chan(URIs) ->
-    URI = lists:nth(random:uniform(length(URIs)), URIs),
+    URI = lists:nth(rand_compat:uniform(length(URIs)), URIs),
     {ok, AmqpParam} = amqp_uri:parse(URI),
     {ok, Conn} = amqp_connection:start(AmqpParam),
     link(Conn),
