@@ -18,11 +18,12 @@ define PROJECT_APP_EXTRA_KEYS
 	{broker_version_requirements, []}
 endef
 
-DEPS = amqp_client
+DEPS = amqp_client rabbit
 TEST_DEPS = amqp_client rabbitmq_ct_helpers rabbitmq_ct_client_helpers gun
 LOCAL_DEPS = public_key crypto ssl inets
 
-dep_amqp_client = git https://github.com/rabbitmq/rabbitmq-erlang-client rabbitmq_v3_6_5
+dep_amqp_client = git https://github.com/rabbitmq/rabbitmq-erlang-client stable
+dep_rabbit = git https://github.com/rabbitmq/rabbitmq-server stable
 
 DEP_PLUGINS = rabbit_common/mk/rabbitmq-plugin.mk
 
