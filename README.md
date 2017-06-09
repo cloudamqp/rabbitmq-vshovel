@@ -11,9 +11,13 @@ Each endpoint is an implementation of the `rabbit_vshovel_endpoint` behaviour.
 This plugin is compatible with RabbitMQ 3.5.x and 3.6.x.
 
 
-## Usage        
+## Usage
 
 ### Packaging
+
+Download pre-compiled versions from https://github.com/cloudamqp/rabbitmq-vshovel/releases
+
+### Build
 
 Clone and build the the plugin by executing `make`. To create a package, execute `make dist` and find the `.ez` package file in the plugins directory.
 
