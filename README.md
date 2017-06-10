@@ -3,7 +3,10 @@
 RabbitMQ vShovel is a WAN-friendly tool for moving messages from
 a queue residing on an AMQP source broker, to a remote endpoint of any desired type, such as an HTTP endpoint.
 
-Each endpoint is an implementation of the `rabbit_vshovel_endpoint` behaviour.
+Each endpoint is an implementation of the `rabbit_vshovel_endpoint` behaviour. The following message shovelling operations and protocol endpoints are currently supported, with more to be introduced as the plugin further grows:
+
+- [AMQP 0.9.1](https://www.rabbitmq.com/amqp-0-9-1-reference.html) (RabbitMQ) to an AMQP 0.9.1 endpoint.
+- AMQP 0.9.1 to an [HTTP 1.1](https://www.w3.org/Protocols/rfc2616/rfc2616.html) endpoint.
 
 
 ## Supported RabbitMQ Versions
