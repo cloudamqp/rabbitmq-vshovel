@@ -57,13 +57,13 @@ handle_call(status, _From, State) ->
 handle_cast({report, Name, Type, Info, Timestamp}, State) ->
     true = ets:insert(?ETS_NAME, #entry{name = Name, type = Type, info = Info,
                                         timestamp = Timestamp}),
-    rabbit_event:notify(shovel_worker_status,
+    rabbit_event:notify(vshovel_worker_status,
                         split_name(Name) ++ split_status(Info)),
     {noreply, State};
 
 handle_cast({remove, Name}, State) ->
     true = ets:delete(?ETS_NAME, Name),
-    rabbit_event:notify(shovel_worker_removed, split_name(Name)),
+    rabbit_event:notify(vshovel_worker_removed, split_name(Name)),
     {noreply, State}.
 
 handle_info(_Info, State) ->

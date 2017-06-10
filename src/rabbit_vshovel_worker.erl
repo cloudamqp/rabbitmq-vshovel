@@ -163,8 +163,8 @@ handle_info(#'basic.cancel'{},
                            config = #vshovel{destinations = 
                                               #endpoint{protocol = ?AMQP_PROTOCOL},
                                               ack_mode = on_confirm}}) ->
-    error_logger:warning_msg("vShovel ~p received 'basic.cancel' from the broker~n",
-                             [Name]),
+    rabbit_log:warning("vShovel ~p received 'basic.cancel' from the broker~n",
+                       [Name]),
     {stop, {shutdown, restart}, State};
 
 handle_info({'EXIT', InboundConn, Reason},
@@ -190,7 +190,7 @@ terminate({shutdown, autodelete}, State = #state{name   = {VHost, Name},
     close_connections(State),
     %% See rabbit_vshovel_dyn_worker_sup_sup:stop_child/1
     put(vshovel_worker_autodelete, true),
-    rabbit_runtime_parameters:clear(VHost, <<"vshovel">>, Name, ?VSHOVEL_USER),
+    rabbit_runtime_parameters:clear(VHost, <<"vshovel">>, Name),
     rabbit_vshovel_status:remove({VHost, Name}),
     catch Mod:terminate(DestState),
     ok;
