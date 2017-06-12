@@ -190,7 +190,7 @@ terminate({shutdown, autodelete}, State = #state{name   = {VHost, Name},
     close_connections(State),
     %% See rabbit_vshovel_dyn_worker_sup_sup:stop_child/1
     put(vshovel_worker_autodelete, true),
-    rabbit_runtime_parameters:clear(VHost, <<"vshovel">>, Name),
+    rabbit_runtime_parameters:clear(VHost, <<"vshovel">>, Name, ?VSHOVEL_USER),
     rabbit_vshovel_status:remove({VHost, Name}),
     catch Mod:terminate(DestState),
     ok;
@@ -306,7 +306,7 @@ publish(Tag, Method, Msg, State = #state{inbound_ch = InboundChan,
       end).
 
 make_conn_and_chan(URIs) ->
-    URI = lists:nth(rand_compat:uniform(length(URIs)), URIs),
+    URI = lists:nth(rand:uniform(length(URIs)), URIs),
     {ok, AmqpParam} = amqp_uri:parse(URI),
     {ok, Conn} = amqp_connection:start(AmqpParam),
     link(Conn),
