@@ -31,7 +31,8 @@ rabbitmqctl set_parameter vshovel my-vshovel \
   '{"src-uri": "amqp://fred:secret@host1.domain/my_vhost",
     "src-queue": "my-queue", "dest-type":"http",
     "dest-uri":"http://remote-host1.domain", "dest-vsn": "1.1",
-    "dest-args": {"method": "post", "keep_alive_timeout" : 10000}}'
+    "dest-args": {"method": "post", "keep_alive_timeout" : 10000},
+    "send-mode": "sync"}'
 ```
 
 ### Static configuration
@@ -70,7 +71,8 @@ rabbitmqctl set_parameter vshovel my-vshovel \
               {add_forward_headers, true},
               {publish_fields,      [{exchange,   <<"my_direct">>},
                                      {routing_key, <<"from_shovel">>}]},
-              {reconnect_delay,     5}]}
+              {reconnect_delay,     5},
+              {send_mode,           sync}]}
           ]}
 ]}].
 

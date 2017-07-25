@@ -112,7 +112,8 @@ validation(User, CB, Def) ->
      {<<"publish-properties">>, fun validate_properties/2,  optional},
      {<<"ack-mode">>,        rabbit_parameter_validation:enum(
                                ['no-ack', 'on-publish', 'on-confirm']), optional},
-     {<<"delete-after">>,    fun validate_delete_after/2, optional}
+     {<<"delete-after">>,    fun validate_delete_after/2, optional},
+     {<<"send-mode">>,       fun validate_send_mode/2,optional}
     ].
 
 validate_uri_fun(User) ->
@@ -198,6 +199,12 @@ validate_address_fun(_User, CB) ->
 validate_address_fun(_Name, Term, CB) ->
     CB:validate_address(Term).
 
+validate_send_mode(Name, Term) ->
+    case ?TO_ATOM(string:to_lower(?TO_LIST(Term))) of
+        M when M =:= sync; M =:= async -> ok;
+        _ -> {error, "~s should be either 'sync' or 'async', "
+                     "but is configured as \"~s\"", [Name, Term]}
+    end.
 
 %%----------------------------------------------------------------------------
 parse({VHost, Name}, Def) ->
@@ -206,6 +213,7 @@ parse({VHost, Name}, Def) ->
     DestType = pget(<<"dest-type">>,         Def, <<"amqp">>),
     Version  = pget(<<"dest-vsn">>,          Def, <<"0.9.1">>),
     DestArgs = pget(<<"dest-args">>,         Def, <<"{}">>),
+    SendMode = pget(<<"send-mode">>,         Def, <<"sync">>),
     SrcX     = pget(<<"src-exchange">>,      Def, none),
     SrcXKey  = pget(<<"src-exchange-key">>,  Def, <<>>), %% [1]
     SrcQ     = pget(<<"src-queue">>,         Def, none),
@@ -246,7 +254,8 @@ parse({VHost, Name}, Def) ->
                                       pget(<<"ack-mode">>, Def, <<"on-confirm">>)),
                queue              = Queue,
                reconnect_delay    = pget(<<"reconnect-delay">>, Def, 1),
-               delete_after       = opt_b2a(pget(<<"delete-after">>, Def, <<"never">>))
+               delete_after       = opt_b2a(pget(<<"delete-after">>, Def, <<"never">>)),
+               send_mode          = SendMode
     },
 
     %% If protocol is 'amqp', treat as current implementation

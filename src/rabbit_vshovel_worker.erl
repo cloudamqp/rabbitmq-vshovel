@@ -23,7 +23,7 @@
          code_change/3]).
 
 -export([init/2, validate_address/1, validate_arguments/1, 
-         handle_broker_message/2, terminate/1]).
+         handle_broker_message/2, send/2, terminate/1]).
 
 -export([make_conn_and_chan/1]).
 
@@ -128,7 +128,8 @@ handle_info({#'basic.deliver'{delivery_tag = Tag,
                                               #endpoint{protocol = ?AMQP_PROTOCOL},
                                               publish_properties = PropsFun,
                                               publish_fields     = FieldsFun,
-                                              dest_state         = DestState}}) ->
+                                              dest_state         = DestState,
+                                              send_mode          = _M}}) ->
     #amqp_state{outbound_uri = OutboundURI} = DestState,
     Method = #'basic.publish'{exchange = Exchange, routing_key = RoutingKey},
     Method1 = FieldsFun(InboundURI, OutboundURI, Method),
@@ -136,9 +137,14 @@ handle_info({#'basic.deliver'{delivery_tag = Tag,
     {noreply, publish(Tag, Method1, Msg1, State)};
 handle_info(Delivery = {#'basic.deliver'{}, #amqp_msg{}}, 
             State    = #state{config = VShovel = #vshovel{dest_mod   = Mod,
-                                                          dest_state = DestState}}) ->
-    {ok, DestState0} = Mod:handle_broker_message(Delivery, DestState),
-    {noreply, State#state{config = VShovel#vshovel{dest_state = DestState0}}};
+                                                          dest_state = DestState,
+                                                          send_mode  = M}}) ->
+    {ok, SendArgs, DestState0} = Mod:handle_broker_message(Delivery, DestState),
+    {ok, DestState1} =
+        internal_send(M, fun() -> Mod:send(SendArgs, DestState0) end, DestState0),
+    update_running(
+        State0 = State#state{config = VShovel#vshovel{dest_state = DestState1}}),
+    {noreply, State0};
 
 handle_info(#'basic.ack'{delivery_tag = Seq, multiple = Multiple},
             State = #state{config = #vshovel{destinations = 
@@ -242,6 +248,9 @@ init(InboundChan, #vshovel{ack_mode     = AckMode,
 handle_broker_message(_AMQPMessage, AMQPState = #amqp_state{}) ->
     {ok, AMQPState}.
 
+send(_SendArgs, AMQPState = #amqp_state{}) ->
+    {ok, AMQPState}.
+
 terminate(_AMQPState = #amqp_state{outbound_ch = OutboundChan}) ->
     catch amqp_connection:close(OutboundChan, ?MAX_CONNECTION_CLOSE_TIMEOUT),
     ok.
@@ -271,10 +280,21 @@ remove_delivery_tags(Seq, true, Unacked, Count) ->
 
 report_running(#state{name = Name,
                       inbound_uri  = InboundURI,
-                      config = #vshovel{dest_state = DestState},
+                      config = #vshovel{dest_mod   = DestMod,
+                                        dest_state = DestState,
+                                        send_mode  = Mode},
                       type   = Type}) ->
     rabbit_vshovel_status:report(Name, Type, {running, [{src_uri,    InboundURI},
-                                                        {dest_state, DestState}]}).
+                                                        {dest_state, DestState}] ++
+                                                         send_mode(DestMod, Mode)}).
+
+update_running(#state{name = Name,
+                      inbound_uri  = InboundURI,
+                      config = #vshovel{dest_state = DestState,
+                                        send_mode  = Mode}}) ->
+    rabbit_vshovel_status:update(Name, [{src_uri,    InboundURI},
+                                        {dest_state, DestState},
+                                        {send_mode,  Mode}]).
 
 publish(_Tag, _Method, _Msg, State = #state{remaining_unacked = 0}) ->
     %% We are in on-confirm mode, and are autodelete. We have
@@ -341,3 +361,14 @@ decr_remaining_unacked(State = #state{remaining_unacked = N}) ->
 close_connections(#state{inbound_conn = InboundConn}) ->
     catch amqp_connection:close(InboundConn,
                                 ?MAX_CONNECTION_CLOSE_TIMEOUT).
+
+send_mode(?MODULE, _Mode) -> [];
+send_mode(_, Mode)        -> [{send_mode,  Mode}].
+
+internal_send(async, F, State) when is_function(F) ->
+    rabbit_vshovel_endpoint:execute_async(F),
+    %% Asynchronously sent messages have no right to alter an
+    %% endpoint's state, so return destination state unaltered.
+    {ok, State};
+internal_send(_, F, _State) when is_function(F) ->
+    rabbit_vshovel_endpoint:execute_sync(F).

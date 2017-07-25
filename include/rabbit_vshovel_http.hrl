@@ -4,6 +4,16 @@
 -define(HTTP_PUT,               put).
 -define(HTTP_DELETE,            delete).
 
+%% HTTP state record
+-record(http_state, {uri,
+                     method = ?HTTP_POST,
+                     args,
+                     http_options,
+                     source_queue,
+                     ack_mode,
+                     source_channel,
+                     result
+                    }).
 
 %% HTTP Response Codes
 

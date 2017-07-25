@@ -19,7 +19,7 @@
 
 -export([start_link/0]).
 
--export([report/3, remove/1, status/0]).
+-export([report/3, update/2, remove/1, status/0]).
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
          terminate/2, code_change/3]).
@@ -36,6 +36,9 @@ start_link() ->
 
 report(Name, Type, Info) ->
     gen_server:cast(?SERVER, {report, Name, Type, Info, calendar:local_time()}).
+
+update(Name, Info) ->
+    gen_server:cast(?SERVER, {update, Name, Info}).
 
 remove(Name) ->
     gen_server:cast(?SERVER, {remove, Name}).
@@ -59,6 +62,14 @@ handle_cast({report, Name, Type, Info, Timestamp}, State) ->
                                         timestamp = Timestamp}),
     rabbit_event:notify(vshovel_worker_status,
                         split_name(Name) ++ split_status(Info)),
+    {noreply, State};
+
+handle_cast({update, Name, Info}, State) ->
+    case ets:lookup(?ETS_NAME, Name) of
+        [Entry = #entry{name = Name, info = {running, _}}] ->
+            true = ets:insert(?ETS_NAME, Entry#entry{info = {running, Info}});
+        _ -> void
+    end,
     {noreply, State};
 
 handle_cast({remove, Name}, State) ->
