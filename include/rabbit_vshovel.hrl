@@ -27,8 +27,9 @@
          publish_properties,
          queue,
          reconnect_delay,  %% move later
+         send_mode,
          name,
-         delete_after = never,
+         delete_after = 'never',
          dest_mod,
          dest_state
         }).
@@ -39,9 +40,12 @@
          args
         }).
 
+-type endpoint_state()   :: term().
 
 -type vshovel_type()     :: 'static' | 'dynamic'.
 -type vshovel_record()   :: #vshovel{}.
 -type vshovel_result()   :: 'ok' | {'error', term()}.
 -type vshovel_protocol() :: atom().
 -type vshovel_error()    :: {'error', term()}.
+-type vshovel_address()  :: term().
+-type vshovel_arguments():: [term()].

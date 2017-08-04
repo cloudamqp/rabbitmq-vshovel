@@ -92,7 +92,8 @@ parse_vshovel_config_dict(Name, Dict) ->
                          {fun parse_binary/1,               queue},
                          make_parse_publish(publish_fields),
                          make_parse_publish(publish_properties),
-                         {fun parse_non_negative_number/1,  reconnect_delay}]],
+                         {fun parse_non_negative_number/1,  reconnect_delay},
+                         {fun parse_send_mode/1,            send_mode}]],
             #vshovel{}),
     Cfg1 = case dict:find(add_forward_headers, Dict) of
         {ok, true} -> add_forward_headers_fun(Name, Cfg);
@@ -245,6 +246,11 @@ parse_ack_mode({Val, Pos}) when Val =:= no_ack orelse
 parse_ack_mode({WrongVal, _Pos}) ->
     fail({ack_mode_value_requires_one_of, {no_ack, on_publish, on_confirm},
           WrongVal}).
+
+parse_send_mode({Mode, Pos}) when Mode =:= async; Mode =:= sync ->
+    return({Mode, Pos});
+parse_send_mode({WrongMode, _Pos}) ->
+    fail({send_mode_requires_one_of, {async, sync}, WrongMode}).
 
 make_parse_publish(publish_fields) ->
     {make_parse_publish1(record_info(fields, 'basic.publish')), publish_fields};

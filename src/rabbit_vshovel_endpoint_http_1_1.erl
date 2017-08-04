@@ -21,6 +21,7 @@
          validate_address/1,
          validate_arguments/1,
          handle_broker_message/2,
+         send/2,
          terminate/1]).
 
 -include("rabbit_vshovel.hrl").
@@ -30,16 +31,6 @@
 %% -----------
 %% Definitions
 %% -----------
--record(http_state, {uri,
-                     method = ?HTTP_POST,
-                     args,
-                     http_options,
-                     source_queue,
-                     ack_mode,
-                     source_channel,
-                     result
-                    }).
-
 -define(REQUESTING_ENTITY,      "RabbitMQ-vShovel").
 -define(VERSION,                ?VSHOVEL_VERSION).
 -define(DEFAULT_CONTENT_TYPE,	"application/octet-stream").
@@ -90,11 +81,11 @@ handle_broker_message({#'basic.deliver'{exchange     = Exchange,
     ContentType0= set_content_type(ContentType),
     Headers     = set_headers(QueueName, Exchange, RoutingKey, Headers0),
     Request     = {URI, Headers, ContentType0, Payload},
-    worker_pool:submit_async(
-      fun() ->
-              send(Method, Request, HttpOptions, Channel, DeliveryTag)
-      end),
-    {ok, HttpState}.
+    {ok, [Method, Request, HttpOptions, Channel, DeliveryTag], HttpState}.
+
+send([Method, Request, HttpOptions, Channel, DeliveryTag], HttpState) ->
+    Result = http_send(Method, Request, HttpOptions, Channel, DeliveryTag),
+    {ok, HttpState#http_state{result = Result}}.
 
 terminate(_HttpState) ->
 	ok.
@@ -102,7 +93,7 @@ terminate(_HttpState) ->
 %% -------
 %% Private
 %% -------
-send(Method, Request, Options, Channel, DeliveryTag) ->
+http_send(Method, Request, Options, Channel, DeliveryTag) ->
     case catch httpc:request(Method, Request, Options, []) of
         {ok, {{_HTTP, Code, _}, _Headers, _Body}} ->
             case handle_response(Code, Channel, DeliveryTag) of

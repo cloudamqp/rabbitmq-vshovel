@@ -9,7 +9,8 @@ define PROJECT_ENV
 	        {ack_mode,           on_confirm},
 	        {publish_fields,     []},
 	        {publish_properties, []},
-	        {reconnect_delay,    5}
+	        {reconnect_delay,    5},
+	        {send_mode,          async}
 	      ]}
 	  ]
 endef

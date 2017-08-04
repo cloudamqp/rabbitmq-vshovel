@@ -17,22 +17,30 @@
 -module(rabbit_vshovel_endpoint).
 
 -export([module/1, module/2, ensure_protocol/1, ensure_version/1,
-         notify_and_maybe_log/2, notify_and_maybe_log/3]).
+         notify_and_maybe_log/2, notify_and_maybe_log/3,
+         execute_async/1, execute_sync/1]).
 
 -include("rabbit_vshovel.hrl").
 
 %% -------------------
 %% Behaviour callbacks
 %% -------------------
--callback init(pid(), vshovel_record()) -> {'ok', term()} | {'error', term()}.
+-callback init(pid(), vshovel_record()) ->
+              {'ok', endpoint_state()} | vshovel_error().
 
--callback validate_address(iodata()) -> {'ok', term()} | vshovel_error().
+-callback validate_address(iodata()) ->
+              {'ok', vshovel_address()} | vshovel_error().
 
--callback validate_arguments(list()) -> {'ok', term()} | vshovel_error().
+-callback validate_arguments(vshovel_arguments()) ->
+              {'ok', vshovel_arguments()} | vshovel_error().
 
--callback handle_broker_message(term(), term()) -> {'ok', term()} | vshovel_error().
+-callback handle_broker_message(term(), endpoint_state()) ->
+              {'ok', vshovel_arguments(), endpoint_state()} | vshovel_error().
 
--callback terminate(term()) -> 'ok'.
+-callback send(vshovel_arguments(), endpoint_state()) ->
+              {'ok', endpoint_state()} | vshovel_error().
+
+-callback terminate(endpoint_state()) -> 'ok'.
 
 
 -spec module(vshovel_protocol(), term()) -> atom() | vshovel_error().
@@ -74,3 +82,6 @@ notify_and_maybe_log(EventName, Endpoint, Result) ->
                                 [EventName, Result]);
         _    -> void
     end.
+
+execute_async(F) when is_function(F) -> worker_pool:submit_async(F).
+execute_sync(F)  when is_function(F) -> F().
