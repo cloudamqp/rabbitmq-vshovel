@@ -24,7 +24,11 @@ Download pre-compiled versions from https://github.com/cloudamqp/rabbitmq-vshove
 
 Clone and build the plugin by executing `make`. To create a package, execute `make dist` and find the `.ez` package file in the plugins directory.
 
-### Dynamic configuration
+## Configuration
+
+### 1. Dynamic configuration
+
+#### Unix
 
 ```
 rabbitmqctl set_parameter vshovel my-vshovel \
@@ -34,7 +38,18 @@ rabbitmqctl set_parameter vshovel my-vshovel \
     "dest-args": {"method": "post", "keep_alive_timeout" : 10000}}'
 ```
 
-### Static configuration
+#### Windows
+
+```
+rabbitmqctl set_parameter vshovel my-vshovel ^
+  "{""src-uri"": ""amqp://fred:secret@host1.domain/my_vhost"", ^
+    ""src-queue"": ""my-queue"", ""dest-type"":""http"", ^
+    ""dest-uri"":""http://remote-host1.domain"", ""dest-vsn"": ""1.1"", ^
+    ""dest-args"": {""method"": ""post"", ""keep_alive_timeout"":10000}}"
+```
+
+
+### 2. Static configuration
 
 ```
 [{rabbitmq_vshovel,
@@ -74,6 +89,20 @@ rabbitmqctl set_parameter vshovel my-vshovel \
           ]}
 ]}].
 
+```
+
+### 3. Verification
+
+Once configured, verify status of the shovel using the following command (on a Unix-like OS):
+
+```
+rabbitmqctl eval 'rabbit_vshovel_status:status().'
+```
+
+and on Windows;
+
+```
+rabbitmqctl eval "rabbit_vshovel_status:status()."
 ```
 
 ## License and Copyright
