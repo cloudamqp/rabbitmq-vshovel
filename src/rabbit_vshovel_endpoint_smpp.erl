@@ -41,7 +41,7 @@
                     callback_dr,
                     source_queue,
                     source_channel,
-                    worker_pid,
+                    worker_pid
                     }).
 
 -define(REQUESTING_ENTITY,      "RabbitMQ-vShovel").
@@ -59,26 +59,20 @@ validate_address(Address) when is_list(Address); is_binary(Address) ->
     	{ok, Address};
 validate_address(Other) -> {error, Other}.
 
-init(Ch, _VState = #vshovel{queue = QueueName,
-                            destinations = #endpoint{address   = DestAddresses,
-                                                     arguments = Args}}) ->
-    SmppOptions = parse_smpp_options(Args, []),
-    {ok, #smpp_state{source_channel = Ch, source_queue = QueueName}}.
-
-
-init(Ch, _VState = #vshovel{destinations = #endpoint{address = DestAddresses,
+init(Ch, _VState = #vshovel{queue        = QueueName,
+                            destinations = #endpoint{address = DestAddresses,
                                                      arguments = Args}}) ->
     
-    NewState = parse_smpp_options( Args,#smpp_state{} ),
-    {ok, SMPPPid} = esmpp:start_link( mode => State#smpp_state.mode
-                                        host => State#smpp_state.host
-                                        port => State#smpp_state.port
-                                        system_id => State#smpp_state.system_id   
-                                        password => State#smpp_state.password
-                                        system_type => State#smpp_state.system_type
+    State = parse_smpp_options( Args,#smpp_state{} ),
+    {ok, SMPPPid} = esmpp:start_link( #{mode => State#smpp_state.mode,
+                                        host => State#smpp_state.host,
+                                        port => State#smpp_state.port,
+                                        system_id => State#smpp_state.system_id,   
+                                        password => State#smpp_state.password,
+                                        system_type => State#smpp_state.system_type,
                                         callback_dr => State#smpp_state.callback_dr}),
 
-    {ok, NewsState#smpp_state{worker_pid=SMPPPid, 
+    {ok, State#smpp_state{worker_pid=SMPPPid, 
                                 source_queue = QueueName}}.
 
 handle_broker_message({#'basic.deliver'{exchange     = Exchange,
@@ -133,12 +127,11 @@ validate_arguments([], Acc)                  -> Acc;
 validate_arguments([H = {_, _}|Rem], Acc)  -> validate_arguments(Rem, [H|Acc]);
 validate_arguments([_|Rem], Acc)           -> validate_arguments(Rem, Acc).
 
-parse_smpp_options( [{mode, V} |T ] , State ) -> parse_smpp_options( T, State#state{mode = V});
-parse_smpp_options( [{host, V} | T ], State) -> parse_smpp_options( T, State#{host = V});
-parse_smpp_options( [{port, V} | T ], State) -> parse_smpp_options( T, State#{port = V});
-parse_smpp_options( [{system_id, V} | T ], State) -> parse_smpp_options( T, State#{system_id = V});
-parse_smpp_options( [{password, V} | T ], State) -> parse_smpp_options( T, State#{password = V});
-parse_smpp_options( [{system_type, V} | T ], State) -> parse_smpp_options( T, State#{system_type = V});
-parse_smpp_options( [{callback_dr, RecvCB} | T ], State) -> parse_smpp_options( T, State#{recv_cb = undefined});
+parse_smpp_options( [{mode, V} |T ] , State ) -> parse_smpp_options( T, State#smpp_state{mode = V});
+parse_smpp_options( [{host, V} | T ], State) -> parse_smpp_options( T, State#smpp_state{host = V});
+parse_smpp_options( [{port, V} | T ], State) -> parse_smpp_options( T, State#smpp_state{port = V});
+parse_smpp_options( [{system_id, V} | T ], State) -> parse_smpp_options( T, State#smpp_state{system_id = V});
+parse_smpp_options( [{password, V} | T ], State) -> parse_smpp_options( T, State#smpp_state{password = V});
+parse_smpp_options( [{system_type, V} | T ], State) -> parse_smpp_options( T, State#smpp_state{system_type = V});
 parse_smpp_options( [_ | T ], State) -> parse_smpp_options( T, State);
 parse_smpp_options( [], State) -> State.
