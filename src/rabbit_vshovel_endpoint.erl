@@ -45,15 +45,17 @@
 
 -spec notify_and_maybe_log(atom(), term(), term()) -> term().
 
-module(http,  _)   	-> rabbit_vshovel_endpoint_http_1_1;
-module(https, _)   	-> module(http,  <<"1.1">>);
+module(http,  _)  -> rabbit_vshovel_endpoint_http_1_1;
+module(https, _)  -> module(http,  <<"1.1">>);
+module(smpp, _)   -> rabbit_vshovel_endpoint_smpp;
 module(amqp, _)		-> rabbit_vshovel_worker;
-module(Other, _)   	-> {error, io_lib:format("Unsupported protocol: ~p", [Other])}.
+module(Other, _)  -> {error, io_lib:format("Unsupported protocol: ~p", [Other])}.
 
-module(http)   		-> module(http,  <<"1.1">>);
-module(https)   	-> module(http,  <<"1.1">>);
-module(amqp)		-> module(amqp,  "0.9.1");
-module(Other)  	 	-> {error, io_lib:format("Unsupported protocol: ~p", [Other])}.
+module(http)  -> module(http, <<"1.1">>);
+module(https) -> module(http, <<"1.1">>);
+module(amqp)  -> module(amqp, "0.9.1");
+module(smpp)  -> module(smppp, "any");
+module(Other) -> {error, io_lib:format("Unsupported protocol: ~p", [Other])}.
 
 ensure_protocol(V) when is_atom(V) -> {ok, V};
 ensure_protocol(V)  -> 
