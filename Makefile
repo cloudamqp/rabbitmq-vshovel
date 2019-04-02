@@ -18,7 +18,8 @@ define PROJECT_APP_EXTRA_KEYS
 	{broker_version_requirements, []}
 endef
 
-DEPS = rabbit_common amqp_client rabbit
+DEPS = rabbit_common amqp_client rabbit esmpp_lib
+dep_esmpp_lib = git https://github.com/Alex-Zhuk/esmpp_lib
 TEST_DEPS = rabbitmq_ct_helpers rabbitmq_ct_client_helpers
 LOCAL_DEPS = public_key crypto ssl inets
 
