@@ -54,7 +54,7 @@ module(Other, _) -> {error, io_lib:format("Unsupported protocol: ~p", [Other])}.
 module(http)  -> module(http, <<"1.1">>);
 module(https) -> module(http, <<"1.1">>);
 module(amqp)  -> module(amqp, "0.9.1");
-module(smpp)  -> module(smppp, "any");
+module(smpp)  -> module(smpp, "any");
 module(Other) -> {error, io_lib:format("Unsupported protocol: ~p", [Other])}.
 
 ensure_protocol(V) when is_atom(V) -> {ok, V};
