@@ -1,6 +1,6 @@
-{application, rabbitmq_vhovel,
+{application, rabbitmq_vshovel,
  [{description, "Variable Data Shovel for RabbitMQ"},
-  {vsn, ""},
+  {vsn, "1.0.00-smpp_test"},
   {modules, []},
   {registered, []},
   {mod, {rabbit_vshovel, []}},
