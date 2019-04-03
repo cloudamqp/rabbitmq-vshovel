@@ -4,5 +4,10 @@
   {modules, []},
   {registered, []},
   {mod, {rabbit_vshovel, []}},
-  {env, []},
+  {env, [{defaults, [
+	        {prefetch_count,     1},
+	        {ack_mode,           on_confirm},
+	        {publish_fields,     []},
+	        {publish_properties, []},
+	        {reconnect_delay,    5}]}]},
   {applications, [kernel, stdlib, rabbit_common, rabbit, amqp_client]}]}.
