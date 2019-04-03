@@ -25,18 +25,18 @@
 
 update_headers(Prefix, Suffix, SrcURI, DestURI,
                Props = #'P_basic'{headers = Headers}) ->
-    Table = Prefix ++ [{<<"src-uri">>,  SrcURI},
-                       {<<"dest-uri">>, DestURI}] ++ Suffix,
-    Headers2 = rabbit_basic:prepend_table_header(
-                 ?ROUTING_HEADER, [{K, longstr, V} || {K, V} <- Table],
-                 Headers),
-    Props#'P_basic'{headers = Headers2}.
+  Table = Prefix ++ [{<<"src-uri">>, SrcURI},
+                     {<<"dest-uri">>, DestURI}] ++ Suffix,
+  Headers2 = rabbit_basic:prepend_table_header(
+    ?ROUTING_HEADER, [{K, longstr, V} || {K, V} <- Table],
+    Headers),
+  Props#'P_basic'{headers = Headers2}.
 
 add_timestamp_header(Props = #'P_basic'{headers = undefined}) ->
-    add_timestamp_header(Props#'P_basic'{headers = []});    
+  add_timestamp_header(Props#'P_basic'{headers = []});
 add_timestamp_header(Props = #'P_basic'{headers = Headers}) ->
-    Headers2 = rabbit_misc:set_table_value(Headers,
-                                           ?TIMESTAMP_HEADER,
-                                           long,
-                                           os:system_time(seconds)),
-    Props#'P_basic'{headers = Headers2}.
+  Headers2 = rabbit_misc:set_table_value(Headers,
+                                         ?TIMESTAMP_HEADER,
+                                         long,
+                                         os:system_time(seconds)),
+  Props#'P_basic'{headers = Headers2}.

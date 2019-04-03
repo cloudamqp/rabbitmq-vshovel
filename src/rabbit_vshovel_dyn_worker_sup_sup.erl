@@ -25,41 +25,41 @@
 -define(SUPERVISOR, ?MODULE).
 
 start_link() ->
-    {ok, Pid} = mirrored_supervisor:start_link(
-                  {local, ?SUPERVISOR}, ?SUPERVISOR,
-                  fun rabbit_misc:execute_mnesia_transaction/1, ?MODULE, []),
-    VShovels = rabbit_runtime_parameters:list_component(<<"vshovel">>),
-    [start_child({pget(vhost, VShovel), pget(name, VShovel)},
-                 pget(value, VShovel)) || VShovel <- VShovels],
-    {ok, Pid}.
+  {ok, Pid} = mirrored_supervisor:start_link(
+    {local, ?SUPERVISOR}, ?SUPERVISOR,
+    fun rabbit_misc:execute_mnesia_transaction/1, ?MODULE, []),
+  VShovels = rabbit_runtime_parameters:list_component(<<"vshovel">>),
+  [start_child({pget(vhost, VShovel), pget(name, VShovel)},
+               pget(value, VShovel)) || VShovel <- VShovels],
+  {ok, Pid}.
 
 adjust(Name, Def) ->
-    case child_exists(Name) of
-        true  -> stop_child(Name);
-        false -> ok
-    end,
-    start_child(Name, Def).
+  case child_exists(Name) of
+    true -> stop_child(Name);
+    false -> ok
+  end,
+  start_child(Name, Def).
 
 start_child(Name, Def) ->
-    case mirrored_supervisor:start_child(
-           ?SUPERVISOR,
-           {Name, {rabbit_vshovel_dyn_worker_sup, start_link, [Name, Def]},
-            transient, ?WORKER_WAIT, worker, [rabbit_vshovel_dyn_worker_sup]}) of
-        {ok,                      _Pid}  -> ok;
-        {error, {already_started, _Pid}} -> ok
-    end.
+  case mirrored_supervisor:start_child(
+    ?SUPERVISOR,
+    {Name, {rabbit_vshovel_dyn_worker_sup, start_link, [Name, Def]},
+     transient, ?WORKER_WAIT, worker, [rabbit_vshovel_dyn_worker_sup]}) of
+    {ok, _Pid} -> ok;
+    {error, {already_started, _Pid}} -> ok
+  end.
 
 child_exists(Name) ->
-    lists:any(fun ({N, _, _, _}) -> N =:= Name end,
-              mirrored_supervisor:which_children(?SUPERVISOR)).
+  lists:any(fun({N, _, _, _}) -> N =:= Name end,
+            mirrored_supervisor:which_children(?SUPERVISOR)).
 
 stop_child(Name) ->
-    case get(vshovel_worker_autodelete) of
-        true -> ok; %% [1]
-        _    -> ok = mirrored_supervisor:terminate_child(?SUPERVISOR, Name),
-                ok = mirrored_supervisor:delete_child(?SUPERVISOR, Name),
-                rabbit_vshovel_status:remove(Name)
-    end.
+  case get(vshovel_worker_autodelete) of
+    true -> ok; %% [1]
+    _ -> ok = mirrored_supervisor:terminate_child(?SUPERVISOR, Name),
+      ok = mirrored_supervisor:delete_child(?SUPERVISOR, Name),
+      rabbit_vshovel_status:remove(Name)
+  end.
 
 %% [1] An autodeleting worker removes its own parameter, and thus ends
 %% up here via the parameter callback. It is a transient worker that
@@ -72,4 +72,4 @@ stop_child(Name) ->
 %%----------------------------------------------------------------------------
 
 init([]) ->
-    {ok, {{one_for_one, 3, 10}, []}}.
+  {ok, {{one_for_one, 3, 10}, []}}.

@@ -45,11 +45,11 @@
 
 -spec notify_and_maybe_log(atom(), term(), term()) -> term().
 
-module(http,  _)  -> rabbit_vshovel_endpoint_http_1_1;
-module(https, _)  -> module(http,  <<"1.1">>);
-module(smpp, _)   -> rabbit_vshovel_endpoint_smpp;
-module(amqp, _)		-> rabbit_vshovel_worker;
-module(Other, _)  -> {error, io_lib:format("Unsupported protocol: ~p", [Other])}.
+module(http, _)  -> rabbit_vshovel_endpoint_http_1_1;
+module(https, _) -> module(http, <<"1.1">>);
+module(smpp, _)  -> rabbit_vshovel_endpoint_smpp;
+module(amqp, _)  -> rabbit_vshovel_worker;
+module(Other, _) -> {error, io_lib:format("Unsupported protocol: ~p", [Other])}.
 
 module(http)  -> module(http, <<"1.1">>);
 module(https) -> module(http, <<"1.1">>);
@@ -58,21 +58,21 @@ module(smpp)  -> module(smppp, "any");
 module(Other) -> {error, io_lib:format("Unsupported protocol: ~p", [Other])}.
 
 ensure_protocol(V) when is_atom(V) -> {ok, V};
-ensure_protocol(V)  -> 
-    try
-        {ok, ?TO_ATOM(string:to_lower(?TO_LIST(V)))}
-    catch
-        _:Reason -> {error, Reason}
-    end.
+ensure_protocol(V) ->
+  try
+    {ok, ?TO_ATOM(string:to_lower(?TO_LIST(V)))}
+  catch
+    _:Reason -> {error, Reason}
+  end.
 
-ensure_version(V)  -> {ok, ?TO_LIST(V)}.
+ensure_version(V) -> {ok, ?TO_LIST(V)}.
 
 notify_and_maybe_log(Endpoint, Result) ->
-	notify_and_maybe_log(vshovel_result, Endpoint, Result).
+  notify_and_maybe_log(vshovel_result, Endpoint, Result).
 notify_and_maybe_log(EventName, Endpoint, Result) ->
-    rabbit_event:notify(EventName, [{source, Endpoint}, {result, Result}]),
-    case application:get_env(rabbitmq_vshovel, log_result) of
-        true -> rabbit_log:info("vShovel result from '~p' endpoint: ~p~n",
-                                [EventName, Result]);
-        _    -> void
-    end.
+  rabbit_event:notify(EventName, [{source, Endpoint}, {result, Result}]),
+  case application:get_env(rabbitmq_vshovel, log_result) of
+    true -> rabbit_log:info("vShovel result from '~p' endpoint: ~p~n",
+                            [EventName, Result]);
+    _ -> void
+  end.

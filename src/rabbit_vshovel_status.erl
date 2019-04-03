@@ -32,54 +32,54 @@
 -record(entry, {name, type, info, timestamp}).
 
 start_link() ->
-    gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
+  gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
 report(Name, Type, Info) ->
-    gen_server:cast(?SERVER, {report, Name, Type, Info, calendar:local_time()}).
+  gen_server:cast(?SERVER, {report, Name, Type, Info, calendar:local_time()}).
 
 remove(Name) ->
-    gen_server:cast(?SERVER, {remove, Name}).
+  gen_server:cast(?SERVER, {remove, Name}).
 
 status() ->
-    gen_server:call(?SERVER, status, infinity).
+  gen_server:call(?SERVER, status, infinity).
 
 init([]) ->
-    ?ETS_NAME = ets:new(?ETS_NAME,
-                        [named_table, {keypos, #entry.name}, private]),
-    {ok, #state{}}.
+  ?ETS_NAME = ets:new(?ETS_NAME,
+                      [named_table, {keypos, #entry.name}, private]),
+  {ok, #state{}}.
 
 handle_call(status, _From, State) ->
-    Entries = ets:tab2list(?ETS_NAME),
-    {reply, [{Entry#entry.name, Entry#entry.type, Entry#entry.info,
-              Entry#entry.timestamp}
-             || Entry <- Entries], State}.
+  Entries = ets:tab2list(?ETS_NAME),
+  {reply, [{Entry#entry.name, Entry#entry.type, Entry#entry.info,
+            Entry#entry.timestamp}
+           || Entry <- Entries], State}.
 
 handle_cast({report, Name, Type, Info, Timestamp}, State) ->
-    true = ets:insert(?ETS_NAME, #entry{name = Name, type = Type, info = Info,
-                                        timestamp = Timestamp}),
-    rabbit_event:notify(vshovel_worker_status,
-                        split_name(Name) ++ split_status(Info)),
-    {noreply, State};
+  true = ets:insert(?ETS_NAME, #entry{name      = Name, type = Type, info = Info,
+                                      timestamp = Timestamp}),
+  rabbit_event:notify(vshovel_worker_status,
+                      split_name(Name) ++ split_status(Info)),
+  {noreply, State};
 
 handle_cast({remove, Name}, State) ->
-    true = ets:delete(?ETS_NAME, Name),
-    rabbit_event:notify(vshovel_worker_removed, split_name(Name)),
-    {noreply, State}.
+  true = ets:delete(?ETS_NAME, Name),
+  rabbit_event:notify(vshovel_worker_removed, split_name(Name)),
+  {noreply, State}.
 
 handle_info(_Info, State) ->
-    {noreply, State}.
+  {noreply, State}.
 
 terminate(_Reason, _State) ->
-    ok.
+  ok.
 
 code_change(_OldVsn, State, _Extra) ->
-    {ok, State}.
+  {ok, State}.
 
 split_status({running, MoreInfo})         -> [{status, running} | MoreInfo];
-split_status({terminated, Reason})        -> [{status, terminated},
-                                              {reason, Reason}];
+split_status({terminated, Reason}) -> [{status, terminated},
+                                       {reason, Reason}];
 split_status(Status) when is_atom(Status) -> [{status, Status}].
 
-split_name({VHost, Name})           -> [{name,  Name},
-                                        {vhost, VHost}];
+split_name({VHost, Name}) -> [{name, Name},
+                              {vhost, VHost}];
 split_name(Name) when is_atom(Name) -> [{name, Name}].

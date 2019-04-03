@@ -25,16 +25,16 @@
 -define(SUPERVISOR, ?MODULE).
 
 start_link(Name, Config) ->
-    supervisor2:start_link(?MODULE, [Name, Config]).
+  supervisor2:start_link(?MODULE, [Name, Config]).
 
 %%----------------------------------------------------------------------------
 
 init([Name, Config]) ->
-    {ok, {{one_for_one, 1, ?MAX_WAIT},
-          [{Name,
-            {rabbit_vshovel_worker, start_link, [dynamic, Name, Config]},
-            case pget(<<"reconnect-delay">>, Config, 1) of
-                N when is_integer(N) andalso N > 0 -> {transient, N};
-                _                                  -> temporary
-            end,
-            16#ffffffff, worker, [rabbit_vshovel_worker]}]}}.
+  {ok, {{one_for_one, 1, ?MAX_WAIT},
+        [{Name,
+          {rabbit_vshovel_worker, start_link, [dynamic, Name, Config]},
+          case pget(<<"reconnect-delay">>, Config, 1) of
+            N when is_integer(N) andalso N > 0 -> {transient, N};
+            _ -> temporary
+          end,
+          16#ffffffff, worker, [rabbit_vshovel_worker]}]}}.
