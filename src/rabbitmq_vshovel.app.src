@@ -1,0 +1,8 @@
+{application, rabbitmq_vhovel,
+ [{description, "Variable Data Shovel for RabbitMQ"},
+  {vsn, ""},
+  {modules, []},
+  {registered, []},
+  {mod, {rabbit_vshovel, []}},
+  {env, []},
+  {applications, [kernel, stdlib, rabbit_common, rabbit, amqp_client]}]}.
