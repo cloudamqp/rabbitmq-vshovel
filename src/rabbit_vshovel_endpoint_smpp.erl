@@ -70,9 +70,7 @@ validate_address(Other) -> {error, Other}.
 init(Ch, _VState = #vshovel{queue        = QueueName,
                              destinations = #endpoint{arguments = Args}}) ->
   SMPPArguments = parse_smpp_options(Args, []),
-  io:format( "!!!!!!!! ~p !!!!!! ~p~n", [?LINE, SMPPArguments]),
   {ok, SMPPPid} = esmpp_lib_worker:start_link(SMPPArguments),
-   io:format( "!!!!!!!! ~p !!!!!! ~p~n", [?LINE, SMPPPid]), 
   {ok, #smpp_state{worker_pid     = SMPPPid,
                    source_queue   = QueueName,
                    source_channel = Ch,
@@ -92,7 +90,8 @@ handle_broker_message({#'basic.deliver'{delivery_tag = DeliveryTag},
     end),
   {ok, SmppState}.
 
-terminate(_SmppState) ->
+terminate(#smpp_state{worker_pid = SMPPPid}) ->
+    esmpp_lib_worker:unbind( SMPPPid),
   ok.
 
 %% ------------------------------------
@@ -171,6 +170,7 @@ validate_arguments([_ | Rem], Acc)          -> validate_arguments(Rem, Acc).
 parse_smpp_options([], Acc)                 -> Acc;
 parse_smpp_options([H = {_, _} | Rem], Acc) -> parse_smpp_options(Rem, [H | Acc]);
 parse_smpp_options([_ | Rem], Acc)          -> parse_smpp_options(Rem, Acc).
+
 
 parse_headers(Headers) when is_list(Headers) ->
   lists:foldl(fun(Header, Acc) ->
