@@ -47,7 +47,6 @@
 %% -----------
 
 -record(smpp_state, {source_queue,
-                     source_channel,
                      worker_pid,
                      args}).
 
@@ -59,7 +58,7 @@
 %% Vshovel Endpoint Behaviour callbacks
 %% ------------------------------------
 
-validate_arguments(Args) when is_list(Args) -> 
+validate_arguments(Args) when is_list(Args) ->
   {ok, validate_arguments([{?TO_ATOM(T), V} || {T, V} <- Args], [])};
 validate_arguments(Args) -> {error, Args}.
 
@@ -68,27 +67,27 @@ validate_address(Address) when is_list(Address); is_binary(Address) ->
 validate_address(Other) -> {error, Other}.
 
 init(Ch, _VState = #vshovel{queue        = QueueName,
-                             destinations = #endpoint{arguments = Args}}) ->
+                            destinations = #endpoint{arguments = Args}}) ->
+  ets:new(dtag_to_seq_nrs, [named_table, public]),
+  ets:new(seq_nr_to_dtag, [named_table, public]),
+  ets:new(smpp_state, [named_table, public]),
+  ets:insert(smpp_state, {channel, Ch}),
   SMPPArguments = parse_smpp_options(Args, []),
-  io:format( "!!!!!!!! ~p !!!!!! ~p~n", [?LINE, SMPPArguments]),
   {ok, SMPPPid} = esmpp_lib_worker:start_link(SMPPArguments),
-   io:format( "!!!!!!!! ~p !!!!!! ~p~n", [?LINE, SMPPPid]), 
-  {ok, #smpp_state{worker_pid     = SMPPPid,
-                   source_queue   = QueueName,
-                   source_channel = Ch,
-                   args           = SMPPArguments}}.
+  {ok, #smpp_state{worker_pid   = SMPPPid,
+                   source_queue = QueueName,
+                   args         = SMPPArguments}}.
 
 
 handle_broker_message({#'basic.deliver'{delivery_tag = DeliveryTag},
                        #amqp_msg{props   = #'P_basic'{headers = Headers},
                                  payload = Payload}},
-                      SmppState = #smpp_state{worker_pid     = Pid,
-                                              source_channel = Channel,
-                                              args           = SMPPArguments}) ->
+                      SmppState = #smpp_state{worker_pid = Pid,
+                                              args       = SMPPArguments}) ->
   PHeaders = parse_headers(Headers),
   worker_pool:submit_async(
     fun() ->
-      send(Payload, PHeaders, Pid, SMPPArguments, Channel, DeliveryTag)
+      send(Payload, PHeaders, Pid, SMPPArguments, DeliveryTag)
     end),
   {ok, SmppState}.
 
@@ -100,67 +99,88 @@ terminate(_SmppState) ->
 %% ------------------------------------
 
 sequence_number_handler(List) ->
-    ?LOG_INFO("Sequence number list ~p~n", [List]).
+  ?LOG_INFO("Sequence number list ~p~n", [List]),
+  DTag = rabbit_misc:pget(delivery_tag, List),
+  SeqNr = rabbit_misc:pget(sequence_number, List),
+  case ets:lookup(dtag_to_seq_nrs, DTag) of
+    [{DTag, SeqNrList}] -> ets:insert(dtag_to_seq_nrs, {DTag, [SeqNr | SeqNrList]});
+    [] -> ets:insert(dtag_to_seq_nrs, {DTag, [SeqNr]})
+  end,
+  ets:insert(seq_nr_to_dtag, {SeqNr, DTag}),
+  ok.
 
 submit_sm_resp_handler(Pid, List) ->
-    ?LOG_INFO("Submit resp pid ~p msg: ~p~n", [Pid, List]).
+  ?LOG_INFO("Submit resp pid ~p msg: ~p~n", [Pid, List]),
+  SeqNr = rabbit_misc:pget(sequence_number, List),
+  case ets:lookup(seq_nr_to_dtag, SeqNr) of
+    [{SeqNr, DTag}] ->
+      handle_response(ok, SeqNr, DTag);
+    [] -> ok
+  end.
 
 deliver_sm_handler(Pid, List) ->
-    ?LOG_INFO("Deliver pid ~p msg: ~p~n", [Pid, List]).
+  ?LOG_INFO("Deliver pid ~p msg: ~p~n", [Pid, List]).
 
 data_sm_handler(Pid, List) ->
-    ?LOG_INFO("Data_sm pid ~p msg: ~p~n", [Pid, List]).
+  ?LOG_INFO("Data_sm pid ~p msg: ~p~n", [Pid, List]).
 
 data_sm_resp_handler(Pid, List) ->
-    ?LOG_INFO("Data_sm resp pid ~p msg: ~p~n", [Pid, List]).
+  ?LOG_INFO("Data_sm resp pid ~p msg: ~p~n", [Pid, List]).
 
 query_sm_resp_handler(Pid, List) ->
-    ?LOG_INFO("Query resp pid ~p msg: ~p~n", [Pid, List]).
+  ?LOG_INFO("Query resp pid ~p msg: ~p~n", [Pid, List]).
 
 unbind_handler(Pid) ->
-    ?LOG_INFO("Link unbind ~p~n", [Pid]).
+  ?LOG_INFO("Link unbind ~p~n", [Pid]).
 
 outbind_handler(Pid, Socket) ->
-    ?LOG_INFO("Link pid ~p outbind ~p~n", [Pid, Socket]).
+  ?LOG_INFO("Link pid ~p outbind ~p~n", [Pid, Socket]).
 
 submit_error(Pid, SeqNum) ->
-    ?LOG_INFO("Error submit pid ~p seqnum ~p~n", [Pid, SeqNum]).
+  ?LOG_INFO("Error submit pid ~p seqnum ~p~n", [Pid, SeqNum]).
 
 network_error(Pid, Error) ->
-    ?LOG_INFO("Pid ~p return error tcp ~p~n", [Pid, Error]).
+  ?LOG_INFO("Pid ~p return error tcp ~p~n", [Pid, Error]).
 
 decoder_error(Pid, Error) ->
-    ?LOG_INFO("Pid ~p return decoder error ~p~n", [Pid, Error]).
+  ?LOG_INFO("Pid ~p return decoder error ~p~n", [Pid, Error]).
 
 %% -------
 %% Private
 %% -------
-send(Request, Headers, Pid, SMPPArguments, Channel, DeliveryTag) ->
+send(Request, Headers, Pid, SMPPArguments, DeliveryTag) ->
   SourceAddr = get_header(source_addr, SMPPArguments, Headers),
   DestAddr = get_header(dest_addr, SMPPArguments, Headers),
-  case catch esmpp_lib_worker:submit(Pid, [{source_addr, SourceAddr}, {dest_addr, DestAddr}, {text, Request}]) of
-    ok ->
-      case handle_response(ok, Channel, DeliveryTag) of
-        ok -> {ok, ok};
-        Error ->
-          rabbit_vshovel_endpoint:notify_and_maybe_log(?MODULE, Error),
-          Error
-      end;
+  case catch esmpp_lib_worker:submit(Pid, [{source_addr, SourceAddr}, {dest_addr, DestAddr}, {text, Request}, {delivery_tag, DeliveryTag}]) of
+    ok -> {ok, 0};
     Error ->
       rabbit_vshovel_endpoint:notify_and_maybe_log(?MODULE, Error),
       Error
   end.
 
-handle_response(ok, Channel, DeliveryTag) ->
+handle_response(ok, SeqNr, DTag) ->
   %% Issue 'basic.ack' back to the broker.
-  amqp_channel:cast(Channel, #'basic.ack'{delivery_tag = DeliveryTag}),
-  rabbit_event:notify(vshovel_result, [{source, ?MODULE}, {result, ok}]),
-  ok;
+  case ets:lookup(dtag_to_seq_nrs, DTag) of
+    [{DTag, SeqNrList}] ->
+      case NewSeqList = SeqNrList -- [SeqNr] of
+        [] ->
+          [{channel, Ch}] = ets:lookup(smpp_state, channel),
+          amqp_channel:cast(Ch, #'basic.ack'{delivery_tag = DTag}),
+          rabbit_event:notify(vshovel_result, [{source, ?MODULE}, {result, ok}]),
+          ets:delete(dtag_to_seq_nrs, DTag),
+          ok;
+        L when is_list(L) ->
+          ets:insert(dtag_to_seq_nrs, {DTag, NewSeqList}),
+          ok
+      end;
+    [] -> ok
+  end;
 
-handle_response(_, Channel, DeliveryTag) ->
+handle_response(_, _, DTag) ->
   %% Issue 'basic.nack' back to the broker,
   %% indicating message delivery failure on HTTP endpoint.
-  amqp_channel:cast(Channel, #'basic.nack'{delivery_tag = DeliveryTag}),
+  [{channel, Ch}] = ets:lookup(smpp_state, channel),
+  amqp_channel:cast(Ch, #'basic.nack'{delivery_tag = DTag}),
   rabbit_vshovel_endpoint:notify_and_maybe_log(?MODULE, fail),
   ok.
 

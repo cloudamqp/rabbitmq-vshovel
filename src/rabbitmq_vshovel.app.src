@@ -1,13 +1,14 @@
 {application, rabbitmq_vshovel,
- [{description, "Variable Data Shovel for RabbitMQ"},
-  {vsn, "1.0.00-smpp_test"},
-  {modules, []},
-  {registered, []},
-  {mod, {rabbit_vshovel, []}},
-  {env, [{defaults, [
-	        {prefetch_count,     1},
-	        {ack_mode,           on_confirm},
-	        {publish_fields,     []},
-	        {publish_properties, []},
-	        {reconnect_delay,    5}]}]},
-  {applications, [kernel, stdlib, rabbit_common, rabbit, amqp_client]}]}.
+  [{description, "Variable Data Shovel for RabbitMQ"},
+   {vsn, "1.0.00-smpp_test"},
+   {modules, []},
+   {registered, []},
+   {mod, {rabbit_vshovel, []}},
+   {env, [{defaults, [
+     {prefetch_count, 1},
+     {ack_mode, on_confirm},
+     {publish_fields, []},
+     {publish_properties, []},
+     {reconnect_delay, 5}]}]},
+   {applications, [kernel, stdlib, rabbit_common, rabbit, amqp_client]},
+   {broker_version_requirements, []}]}.

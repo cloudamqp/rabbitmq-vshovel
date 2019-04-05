@@ -12,3 +12,7 @@
 /xrefr
 
 /rabbitmq_vshovel.d
+*.log
+*.DAT
+*.dets
+*.wal
