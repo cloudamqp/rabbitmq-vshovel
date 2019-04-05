@@ -51,6 +51,71 @@ rabbitmqctl set_parameter vshovel my-vshovel ^
 
 ### 2. Static configuration
 
+## SMPP
+```
+[{rabbitmq_vshovel,
+     [{vshovels,
+         [{smpp_vshovel,
+              [{sources,
+                  [
+                    {protocol, amqp},
+                    {brokers,
+                      ["amqp://guest:guest@localhost:5672"]},
+                   {arguments,
+                      [{declarations,
+                          [{'exchange.declare',
+                              [{exchange, <<"smpp_input">>},
+                               {type,      <<"direct">>},
+                                durable]},
+                           {'queue.declare',
+                              [{arguments,
+                                    [{<<"x-message-ttl">>, long, 60000}]}]},
+                           {'queue.bind',
+                              [{exchange, <<"smpp_input">>},
+                               {queue,    <<>>}]}
+                           ]}]}]},
+                {destinations,
+                  [
+                    {protocol, smpp},
+                    {address, "any"},
+                    {arguments,
+                    [                    
+                        {host, {127,0,0,1}},
+                        {port, 2775},
+                        {password, <<"password">>},
+                        {data_coding, 0},
+                        {system_id, <<"smppclient1">>},
+                        {interface_version, "3.4"},
+                        {enquire_timeout, 30},
+                        {submit_timeout, 60},
+                        {system_type, ""},
+                        {service_type, ""},
+                        {addr_ton, 5},
+                        {addr_npi, 0},
+                        {source_addr_ton, 5},
+                        {source_addr_npi, 0},
+                        {dest_addr_ton, 1},
+                        {dest_addr_npi, 1},
+                        {handler, rabbit_vshovel_endpoint_smpp},
+                        {mode, transmitter},
+                        {source_addr, <<"1234">>},
+                        {dest_addr, <<"5678">>}]}]},
+                {queue, <<"input-queue">>},
+                {prefetch_count, 10},
+                {ack_mode, on_confirm},
+                {publish_properties, [{delivery_mode, 2}]},
+                {publish_fields,      [{exchange,   <<"my_direct">>},
+                                       {routing_key, <<"from_shovel">>}]},                
+                {reconnect_delay, 5}]}
+          ]}
+
+]},
+ {amqp_client,
+     [{gen_server_call_timeout, 900000}]}].
+```
+
+
+## HTTP
 ```
 [{rabbitmq_vshovel,
      [{vshovels,
