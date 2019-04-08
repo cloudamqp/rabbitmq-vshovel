@@ -92,7 +92,7 @@ handle_broker_message({#'basic.deliver'{delivery_tag = DeliveryTag},
   {ok, SmppState}.
 
 terminate(#smpp_state{worker_pid = SMPPPid}) ->
-    esmpp_lib_worker:unbind( SMPPPid),
+  esmpp_lib_worker:unbind(SMPPPid),
   ok.
 
 %% ------------------------------------
@@ -100,7 +100,6 @@ terminate(#smpp_state{worker_pid = SMPPPid}) ->
 %% ------------------------------------
 
 sequence_number_handler(List) ->
-  ?LOG_INFO("Sequence number list ~p~n", [List]),
   DTag = rabbit_misc:pget(delivery_tag, List),
   SeqNr = rabbit_misc:pget(sequence_number, List),
   case ets:lookup(dtag_to_seq_nrs, DTag) of
@@ -110,14 +109,9 @@ sequence_number_handler(List) ->
   ets:insert(seq_nr_to_dtag, {SeqNr, DTag}),
   ok.
 
-submit_sm_resp_handler(Pid, List) ->
-  ?LOG_INFO("Submit resp pid ~p msg: ~p~n", [Pid, List]),
+submit_sm_resp_handler(_Pid, List) ->
   SeqNr = rabbit_misc:pget(sequence_number, List),
-  case ets:lookup(seq_nr_to_dtag, SeqNr) of
-    [{SeqNr, DTag}] ->
-      handle_response(ok, SeqNr, DTag);
-    [] -> ok
-  end.
+  ok = process_seq_nr(ok, SeqNr).
 
 deliver_sm_handler(Pid, List) ->
   ?LOG_INFO("Deliver pid ~p msg: ~p~n", [Pid, List]).
@@ -137,8 +131,8 @@ unbind_handler(Pid) ->
 outbind_handler(Pid, Socket) ->
   ?LOG_INFO("Link pid ~p outbind ~p~n", [Pid, Socket]).
 
-submit_error(Pid, SeqNum) ->
-  ?LOG_INFO("Error submit pid ~p seqnum ~p~n", [Pid, SeqNum]).
+submit_error(_Pid, SeqNr) ->
+  ok = process_seq_nr(fail, SeqNr).
 
 network_error(Pid, Error) ->
   ?LOG_INFO("Pid ~p return error tcp ~p~n", [Pid, Error]).
@@ -159,6 +153,13 @@ send(Request, Headers, Pid, SMPPArguments, DeliveryTag) ->
       Error
   end.
 
+process_seq_nr(Status, SeqNr) ->
+  case ets:lookup(seq_nr_to_dtag, SeqNr) of
+    [{SeqNr, DTag}] ->
+      handle_response(Status, SeqNr, DTag);
+    [] -> ok
+  end.
+
 handle_response(ok, SeqNr, DTag) ->
   %% Issue 'basic.ack' back to the broker.
   case ets:lookup(dtag_to_seq_nrs, DTag) of
@@ -167,8 +168,10 @@ handle_response(ok, SeqNr, DTag) ->
         [] ->
           [{channel, Ch}] = ets:lookup(smpp_state, channel),
           amqp_channel:cast(Ch, #'basic.ack'{delivery_tag = DTag}),
-          rabbit_event:notify(vshovel_result, [{source, ?MODULE}, {result, ok}]),
           ets:delete(dtag_to_seq_nrs, DTag),
+          rabbit_event:notify(vshovel_result, [{source, ?MODULE}, {result, [{status, ok},
+                                                                            {seq_nr, SeqNr},
+                                                                            {dtag_nr, DTag}]}]),
           ok;
         L when is_list(L) ->
           ets:insert(dtag_to_seq_nrs, {DTag, NewSeqList}),
@@ -177,12 +180,29 @@ handle_response(ok, SeqNr, DTag) ->
     [] -> ok
   end;
 
-handle_response(_, _, DTag) ->
+handle_response(fail, SeqNr, DTag) ->
   %% Issue 'basic.nack' back to the broker,
-  %% indicating message delivery failure on HTTP endpoint.
-  [{channel, Ch}] = ets:lookup(smpp_state, channel),
-  amqp_channel:cast(Ch, #'basic.nack'{delivery_tag = DTag}),
-  rabbit_vshovel_endpoint:notify_and_maybe_log(?MODULE, fail),
+  %% indicating message delivery failure on SMPP endpoint.
+  case ets:lookup(dtag_to_seq_nrs, DTag) of
+    [{DTag, _SeqNrList}] ->
+      [{channel, Ch}] = ets:lookup(smpp_state, channel),
+      amqp_channel:cast(Ch, #'basic.nack'{delivery_tag = DTag}),
+      ets:delete(dtag_to_seq_nrs, DTag),
+      rabbit_vshovel_endpoint:notify_and_maybe_log(?MODULE, [{status, fail},
+                                                             {seq_nr, SeqNr},
+                                                             {dtag_nr, DTag}]),
+      ok;
+    [] ->
+      rabbit_vshovel_endpoint:notify_and_maybe_log(?MODULE, [{status, fail},
+                                                             {seq_nr, SeqNr},
+                                                             {dtag_nr, DTag}]),
+      ok
+  end;
+
+handle_response(_, SeqNr, DTag) ->
+  rabbit_vshovel_endpoint:notify_and_maybe_log(?MODULE, [{status, undefined},
+                                                         {seq_nr, SeqNr},
+                                                         {dtag_nr, DTag}]),
   ok.
 
 validate_arguments([], Acc)                 -> Acc;
