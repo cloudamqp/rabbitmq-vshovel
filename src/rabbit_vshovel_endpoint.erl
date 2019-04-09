@@ -25,26 +25,12 @@
 %% Behaviour callbacks
 %% -------------------
 -callback init(pid(), vshovel_record()) -> {'ok', term()} | {'error', term()}.
-
 -callback validate_address(iodata()) -> {'ok', term()} | vshovel_error().
-
 -callback validate_arguments(list()) -> {'ok', term()} | vshovel_error().
-
 -callback handle_broker_message(term(), term()) -> {'ok', term()} | vshovel_error().
-
 -callback terminate(term()) -> 'ok'.
 
-
 -spec module(vshovel_protocol(), term()) -> atom() | vshovel_error().
-
--spec ensure_protocol(term()) -> {ok, atom()}.
-
--spec ensure_version(term()) -> {ok, list()}.
-
--spec notify_and_maybe_log(atom(), term()) -> term().
-
--spec notify_and_maybe_log(atom(), term(), term()) -> term().
-
 module(http, _)  -> rabbit_vshovel_endpoint_http_1_1;
 module(https, _) -> module(http, <<"1.1">>);
 module(smpp, _)  -> rabbit_vshovel_endpoint_smpp;
@@ -57,6 +43,7 @@ module(amqp)  -> module(amqp, "0.9.1");
 module(smpp)  -> module(smpp, "any");
 module(Other) -> {error, io_lib:format("Unsupported protocol: ~p", [Other])}.
 
+-spec ensure_version(term()) -> {ok, list()}.
 ensure_protocol(V) when is_atom(V) -> {ok, V};
 ensure_protocol(V) ->
   try
@@ -67,8 +54,11 @@ ensure_protocol(V) ->
 
 ensure_version(V) -> {ok, ?TO_LIST(V)}.
 
+-spec notify_and_maybe_log(atom(), term()) -> term().
 notify_and_maybe_log(Endpoint, Result) ->
   notify_and_maybe_log(vshovel_result, Endpoint, Result).
+
+-spec notify_and_maybe_log(atom(), term(), term()) -> term().
 notify_and_maybe_log(EventName, Endpoint, Result) ->
   rabbit_event:notify(EventName, [{source, Endpoint}, {result, Result}]),
   case application:get_env(rabbitmq_vshovel, log_result) of
