@@ -37,16 +37,18 @@
          outbind_handler/2, submit_error/2, network_error/2, decoder_error/2,
          sequence_number_handler/1]).
 
+-import(rabbit_misc, [pget/2, pget/3]).
+
 -include("rabbit_vshovel.hrl").
 -include_lib("amqp_client/include/amqp_client.hrl").
-
 -include_lib("esmpp_lib/include/esmpp_lib.hrl").
 
 %% -----------
 %% Definitions
 %% -----------
 
--record(smpp_state, {source_queue,
+-record(smpp_state, {channel,
+                     source_queue,
                      worker_pid,
                      args}).
 
@@ -75,8 +77,9 @@ init(Ch, _VState = #vshovel{queue        = QueueName,
   ets:insert(smpp_state, [{channel, Ch}, {ppid, self()}]),
   SMPPArguments = parse_smpp_options(Args, []),
   {ok, SMPPPid} = esmpp_lib_worker:start_link(SMPPArguments),
-  {ok, #smpp_state{worker_pid   = SMPPPid,
+  {ok, #smpp_state{channel      = Ch,
                    source_queue = QueueName,
+                   worker_pid   = SMPPPid,
                    args         = SMPPArguments}}.
 
 
@@ -88,16 +91,16 @@ handle_broker_message({#'basic.deliver'{delivery_tag = DeliveryTag},
   PHeaders = parse_headers(Headers),
   worker_pool:submit_async(
     fun() ->
-      send(Payload, PHeaders, Pid, SMPPArguments, DeliveryTag)
+      send_smpp(Payload, PHeaders, Pid, SMPPArguments, DeliveryTag)
     end),
   {ok, SmppState};
 
-handle_broker_message({deliver_sm, DeliverSmArgs}, SmppState = #smpp_state{}) ->
-  io:format("~n!!!!! ~p: ~p: ~p ~n !!!!!", [?MODULE, ?LINE, DeliverSmArgs]),
-  %worker_pool:submit_async(
-  %  fun() ->
-  %    send(Payload, PHeaders, Pid, DeliverSmArgs, DeliveryTag)
-  %  end),
+handle_broker_message({deliver_sm, DeliverSmArgs}, SmppState = #smpp_state{channel = Ch,
+                                                                           args    = SMPPArguments}) ->
+  worker_pool:submit_async(
+    fun() ->
+      send_amqp(DeliverSmArgs, Ch, SMPPArguments)
+    end),
   {ok, SmppState}.
 
 terminate(#smpp_state{worker_pid = SMPPPid}) ->
@@ -109,8 +112,8 @@ terminate(#smpp_state{worker_pid = SMPPPid}) ->
 %% ------------------------------------
 
 sequence_number_handler(List) ->
-  DTag = rabbit_misc:pget(delivery_tag, List),
-  SeqNr = rabbit_misc:pget(sequence_number, List),
+  DTag = pget(delivery_tag, List),
+  SeqNr = pget(sequence_number, List),
   case ets:lookup(dtag_to_seq_nrs, DTag) of
     [{DTag, SeqNrList}] -> ets:insert(dtag_to_seq_nrs, {DTag, [SeqNr | SeqNrList]});
     [] -> ets:insert(dtag_to_seq_nrs, {DTag, [SeqNr]})
@@ -119,18 +122,18 @@ sequence_number_handler(List) ->
   ok.
 
 submit_sm_resp_handler(_Pid, List) ->
-  SeqNr = rabbit_misc:pget(sequence_number, List),
-  MsgId = rabbit_misc:pget(message_id, List),
+  SeqNr = pget(sequence_number, List),
+  MsgId = pget(message_id, List),
   {ok, DTag} = handle_response(ok, SeqNr),
   ets:insert(msg_id_to_dtag, {MsgId, DTag}),
   ok.
 
 deliver_sm_handler(_Pid, List) ->
-  MsgId = rabbit_misc:pget(receipted_message_id, List),
+  MsgId = pget(receipted_message_id, List),
   NewList = case ets:lookup(msg_id_to_dtag, MsgId) of
-    [{MsgId, DTag}] -> [{delivery_tag, DTag} | List];
-    [] -> List
-  end,
+              [{MsgId, DTag}] -> [{delivery_tag, DTag} | List];
+              [] -> List
+            end,
   [{ppid, PPid}] = ets:lookup(smpp_state, ppid),
   PPid ! {deliver_sm, NewList},
   ok.
@@ -163,38 +166,44 @@ decoder_error(Pid, Error) ->
 %% -------
 %% Private
 %% -------
-validate_arguments([], Acc)                 -> Acc;
-validate_arguments([H = {_, _} | Rem], Acc) -> validate_arguments(Rem, [H | Acc]);
-validate_arguments([_ | Rem], Acc)          -> validate_arguments(Rem, Acc).
-
-parse_smpp_options([], Acc)                 -> Acc;
-parse_smpp_options([H = {_, _} | Rem], Acc) -> parse_smpp_options(Rem, [H | Acc]);
-parse_smpp_options([_ | Rem], Acc)          -> parse_smpp_options(Rem, Acc).
 
 
-parse_headers(Headers) when is_list(Headers) ->
-  lists:foldl(fun(Header, Acc) ->
-    case Header of
-      {Key, _, Value} ->
-        [{Key, Value} | Acc];
-      _ -> Acc
-    end
-              end, [], Headers);
-parse_headers(_Headers) -> [].
-
-get_header(K, Defaults, Specifics) ->
-  Default = rabbit_misc:pget(K, Defaults),
-  rabbit_misc:pget(atom_to_binary(K, utf8), Specifics, Default).
-
-send(Request, Headers, Pid, SMPPArguments, DeliveryTag) ->
-  SourceAddr = get_header(source_addr, SMPPArguments, Headers),
-  DestAddr = get_header(dest_addr, SMPPArguments, Headers),
-  case catch esmpp_lib_worker:submit(Pid, [{source_addr, SourceAddr}, {dest_addr, DestAddr}, {text, Request}, {delivery_tag, DeliveryTag}]) of
+send_smpp(Msg, Headers, Pid, Config, DeliveryTag) ->
+  SourceAddr = get_header(source_addr, Config, Headers),
+  DestAddr = get_header(dest_addr, Config, Headers),
+  case catch esmpp_lib_worker:submit(Pid, [{source_addr, SourceAddr},
+                                           {dest_addr, DestAddr},
+                                           {text, Msg},
+                                           {delivery_tag, DeliveryTag}]) of
     ok -> {ok, 0};
     Error ->
       rabbit_vshovel_endpoint:notify_and_maybe_log(?MODULE, Error),
       Error
   end.
+
+send_amqp(Args, Channel, Config) ->
+  Exch = pget(deliver_sm_exchange, Config),
+  Queue = pget(deliver_sm_queue, Config),
+  Msg = pget(short_message, Args),
+  DTag = pget(delivery_tag, Args),
+  ESMClass = pget(esm_class, Args),
+  Status = pget(command_status, Args),
+  SrcAddr = pget(source_addr, Args),
+  DestAddr = pget(destination_addr, Args),
+  R = amqp_channel:cast(Channel,
+                    #'basic.publish'{exchange    = Exch,
+                                     routing_key = Queue},
+                    #amqp_msg{payload = Msg,
+                              props   = #'P_basic'{headers = [{<<"original_delivery_tag">>, long, DTag},
+                                                              {<<"esm_class">>, long, ESMClass},
+                                                              {<<"command_status">>, long, Status},
+                                                              {<<"source_addr">>, longstr, SrcAddr},
+                                                              {<<"dest_addr">>, longstr, DestAddr}]}}),
+  io:format("~n!!!!! ~p: ~p: ~p !!!!!~n", [?MODULE, ?LINE, [{<<"original_delivery_tag">>, long, DTag},
+                                                              {<<"esm_class">>, long, ESMClass},
+                                                              {<<"command_status">>, long, Status},
+                                                              {<<"source_addr">>, longstr, SrcAddr},
+                                                              {<<"dest_addr">>, longstr, DestAddr}]]).
 
 handle_response(Status, SeqNr) ->
   case ets:lookup(seq_nr_to_dtag, SeqNr) of
@@ -248,4 +257,27 @@ handle_response(_, SeqNr, DTag) ->
                                                          {seq_nr, SeqNr},
                                                          {dtag_nr, DTag}]),
   ok.
+
+validate_arguments([], Acc)                 -> Acc;
+validate_arguments([H = {_, _} | Rem], Acc) -> validate_arguments(Rem, [H | Acc]);
+validate_arguments([_ | Rem], Acc)          -> validate_arguments(Rem, Acc).
+
+parse_smpp_options([], Acc)                 -> Acc;
+parse_smpp_options([H = {_, _} | Rem], Acc) -> parse_smpp_options(Rem, [H | Acc]);
+parse_smpp_options([_ | Rem], Acc)          -> parse_smpp_options(Rem, Acc).
+
+
+parse_headers(Headers) when is_list(Headers) ->
+  lists:foldl(fun(Header, Acc) ->
+    case Header of
+      {Key, _, Value} ->
+        [{Key, Value} | Acc];
+      _ -> Acc
+    end
+              end, [], Headers);
+parse_headers(_Headers) -> [].
+
+get_header(K, Defaults, Specifics) ->
+  Default = pget(K, Defaults),
+  pget(atom_to_binary(K, utf8), Specifics, Default).
 
