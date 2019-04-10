@@ -190,7 +190,7 @@ send_amqp(Args, Channel, Config) ->
   Status = pget(command_status, Args),
   SrcAddr = pget(source_addr, Args),
   DestAddr = pget(destination_addr, Args),
-  R = amqp_channel:cast(Channel,
+  amqp_channel:cast(Channel,
                     #'basic.publish'{exchange    = Exch,
                                      routing_key = Queue},
                     #amqp_msg{payload = Msg,
@@ -198,12 +198,7 @@ send_amqp(Args, Channel, Config) ->
                                                               {<<"esm_class">>, long, ESMClass},
                                                               {<<"command_status">>, long, Status},
                                                               {<<"source_addr">>, longstr, SrcAddr},
-                                                              {<<"dest_addr">>, longstr, DestAddr}]}}),
-  io:format("~n!!!!! ~p: ~p: ~p !!!!!~n", [?MODULE, ?LINE, [{<<"original_delivery_tag">>, long, DTag},
-                                                              {<<"esm_class">>, long, ESMClass},
-                                                              {<<"command_status">>, long, Status},
-                                                              {<<"source_addr">>, longstr, SrcAddr},
-                                                              {<<"dest_addr">>, longstr, DestAddr}]]).
+                                                              {<<"dest_addr">>, longstr, DestAddr}]}}).
 
 handle_response(Status, SeqNr) ->
   case ets:lookup(seq_nr_to_dtag, SeqNr) of
