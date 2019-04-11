@@ -117,8 +117,6 @@ handle_cast(init, State = #state{config = VShovel0 =
   ok = report_running(State1),
   {noreply, State1}.
 
-%% TODO move amqp spicific messages into amqp callback
-
 handle_info(#'basic.consume_ok'{}, State) ->
   {noreply, State};
 
@@ -160,14 +158,6 @@ handle_info(#'basic.nack'{delivery_tag = Seq, multiple = Multiple},
       #'basic.nack'{delivery_tag = DTag, multiple = Multi}
     end, Seq, Multiple, State)};
 
-%% TODO make compatible as default
-
-handle_info(Msg,
-            State = #state{config = VShovel = #vshovel{dest_mod   = Mod,
-                                                       dest_state = DestState}}) ->
-  {ok, DestState0} = Mod:handle_broker_message(Msg, DestState),
-  {noreply, State#state{config = VShovel#vshovel{dest_state = DestState0}}};
-
 handle_info(#'basic.cancel'{},
             State = #state{name   = Name,
                            config = #vshovel{destinations =
@@ -184,7 +174,13 @@ handle_info({'EXIT', InboundConn, Reason},
 handle_info({'EXIT', OutboundConn, Reason},
             State = #state{config = #vshovel{dest_state = #amqp_state{outbound_conn =
                                                                       OutboundConn}}}) ->
-  {stop, {outbound_conn_died, Reason}, State}.
+  {stop, {outbound_conn_died, Reason}, State};
+
+handle_info(Msg,
+            State = #state{config = VShovel = #vshovel{dest_mod   = Mod,
+                                                       dest_state = DestState}}) ->
+  {ok, DestState0} = Mod:handle_broker_message(Msg, DestState),
+  {noreply, State#state{config = VShovel#vshovel{dest_state = DestState0}}}.
 
 terminate(Reason, #state{inbound_conn = undefined, inbound_ch = undefined,
                          config       = #vshovel{dest_mod   = Mod,
